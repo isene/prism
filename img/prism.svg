@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="60%">
+      <stop offset="0%"  style="stop-color:#1f1f38"/>
+      <stop offset="70%" style="stop-color:#0f0f1c"/>
+      <stop offset="100%" style="stop-color:#070710"/>
+    </radialGradient>
+    <linearGradient id="rust" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"  style="stop-color:#ff7a3a"/>
+      <stop offset="100%" style="stop-color:#b7410e"/>
+    </linearGradient>
+
+    <!-- Triangular prism: subtle bevel, faint glow -->
+    <linearGradient id="glassLeftFace" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"  style="stop-color:rgba(255,255,255,0.18)"/>
+      <stop offset="100%" style="stop-color:rgba(255,255,255,0.05)"/>
+    </linearGradient>
+    <linearGradient id="glassRightFace" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"  style="stop-color:rgba(180,200,255,0.05)"/>
+      <stop offset="100%" style="stop-color:rgba(180,200,255,0.18)"/>
+    </linearGradient>
+    <linearGradient id="glassEdge" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  style="stop-color:#fff" stop-opacity="0.85"/>
+      <stop offset="100%" style="stop-color:#fff" stop-opacity="0.25"/>
+    </linearGradient>
+
+    <!-- Soft white-ray glow (incoming light) -->
+    <radialGradient id="rayGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  style="stop-color:#ffffff" stop-opacity="0.95"/>
+      <stop offset="60%" style="stop-color:#ffffff" stop-opacity="0.25"/>
+      <stop offset="100%" style="stop-color:#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Spectrum fan: full rainbow as a filled wedge -->
+    <linearGradient id="spectrumFan" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   style="stop-color:#ff2a2a"/>
+      <stop offset="18%"  style="stop-color:#ff8c00"/>
+      <stop offset="36%"  style="stop-color:#ffe800"/>
+      <stop offset="55%"  style="stop-color:#3ee83e"/>
+      <stop offset="74%"  style="stop-color:#3a7aff"/>
+      <stop offset="100%" style="stop-color:#a040ff"/>
+    </linearGradient>
+
+    <!-- Tail fade so the rainbow softens out at the edge of the disc -->
+    <linearGradient id="fanFade" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   style="stop-color:#000" stop-opacity="0"/>
+      <stop offset="60%"  style="stop-color:#000" stop-opacity="0"/>
+      <stop offset="100%" style="stop-color:#000" stop-opacity="0.55"/>
+    </linearGradient>
+
+    <!-- Soft glow around the refraction point -->
+    <radialGradient id="refractionGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  style="stop-color:#ffffff" stop-opacity="0.9"/>
+      <stop offset="40%" style="stop-color:#ffffff" stop-opacity="0.35"/>
+      <stop offset="100%" style="stop-color:#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="bloom" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.4"/>
+    </filter>
+
+    <!-- Clip the spectrum fan to the disc so it doesn't bleed past the border -->
+    <clipPath id="discClip">
+      <circle cx="128" cy="128" r="118"/>
+    </clipPath>
+  </defs>
+
+  <!-- Backdrop disc -->
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="url(#rust)" stroke-width="3"/>
+
+  <g clip-path="url(#discClip)">
+
+    <!-- Spectrum fan emerging from the prism's right face.
+         Polygon apex at the right face midpoint (158,128), spreading to
+         the disc edge. Filled with the rainbow gradient, then darkened
+         at the trailing edge. -->
+    <polygon points="158,128 240,72 244,128 240,184" fill="url(#spectrumFan)"/>
+    <polygon points="158,128 240,72 244,128 240,184" fill="url(#fanFade)"/>
+
+    <!-- Faint band streaks on top of the fan to suggest discrete refraction -->
+    <g opacity="0.35" stroke-width="0.8" stroke-linecap="round">
+      <line x1="158" y1="128" x2="240" y2="80"  stroke="#fff"/>
+      <line x1="158" y1="128" x2="244" y2="100" stroke="#fff"/>
+      <line x1="158" y1="128" x2="246" y2="120" stroke="#fff"/>
+      <line x1="158" y1="128" x2="246" y2="138" stroke="#fff"/>
+      <line x1="158" y1="128" x2="244" y2="156" stroke="#fff"/>
+      <line x1="158" y1="128" x2="240" y2="178" stroke="#fff"/>
+    </g>
+
+    <!-- Incoming white ray with bloom -->
+    <g filter="url(#bloom)">
+      <rect x="18" y="125" width="80" height="6" fill="url(#rayGlow)"/>
+    </g>
+    <line x1="18" y1="128" x2="98" y2="128" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.95"/>
+
+    <!-- Equilateral glass prism (front-facing).
+         Apex at top, base flat. Two faces tinted with subtle gradients
+         to suggest a 3D bevel; bright top edges to suggest glass. -->
+    <!-- Left face (lighter, catching the incoming light) -->
+    <polygon points="128,52 98,128 128,164" fill="url(#glassLeftFace)"/>
+    <!-- Right face (cooler tint) -->
+    <polygon points="128,52 158,128 128,164" fill="url(#glassRightFace)"/>
+    <!-- Outline -->
+    <polygon points="128,52 98,128 158,128 128,164"
+             fill="none"
+             stroke="url(#glassEdge)"
+             stroke-width="1.6"
+             stroke-linejoin="round"
+             opacity="0.85"/>
+    <!-- Apex highlight -->
+    <line x1="128" y1="52" x2="128" y2="76" stroke="#fff" stroke-width="0.9" opacity="0.6"/>
+
+    <!-- Refraction-point glow where the ray enters the prism -->
+    <circle cx="98" cy="128" r="9" fill="url(#refractionGlow)"/>
+
+  </g>
+
+  <!-- Subtle rust ring on top of the clipped content for a clean border -->
+  <circle cx="128" cy="128" r="120" fill="none" stroke="url(#rust)" stroke-width="3"/>
+</svg>
