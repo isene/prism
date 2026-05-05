@@ -305,18 +305,24 @@ fn render(app: &App, cols: u16, rows: u16) {
     s.push_str(&move_to(row_r + 2, 45));
     s.push_str(&slider("V", (hsv.v * 100.0) as i32, 100, app.channel == Channel::V, &hint_val));
 
-    // Channel-model explanations under the sliders.
-    s.push_str(&move_to(row_r + 3, 3));
-    s.push_str("\x1b[2mRGB: red · green · blue, each 0–255 (additive light)\x1b[0m");
-    s.push_str(&move_to(row_r + 3, 45));
-    s.push_str("\x1b[2mHSV: hue 0–360°, saturation/value 0–100%\x1b[0m");
+    // Channel-model explanations under the sliders (full-width, blank
+    // row gap above and between the two model groups).
     s.push_str(&move_to(row_r + 4, 3));
-    s.push_str("\x1b[2m     R+G+B mix the three primaries directly.\x1b[0m");
-    s.push_str(&move_to(row_r + 4, 45));
-    s.push_str("\x1b[2m     hue = which color, sat = vividness, value = brightness\x1b[0m");
+    s.push_str("\x1b[2mRGB — additive light. Each channel 0–255; mix the three primaries.\x1b[0m");
+    s.push_str(&move_to(row_r + 5, 3));
+    s.push_str("\x1b[2m  R = red     G = green     B = blue       (0,0,0)=black · (255,255,255)=white\x1b[0m");
+
+    s.push_str(&move_to(row_r + 7, 3));
+    s.push_str("\x1b[2mHSV — perceptual model, what humans intuitively reach for.\x1b[0m");
+    s.push_str(&move_to(row_r + 8, 3));
+    s.push_str("\x1b[2m  H = hue          0–360°   which color (0=red, 120=green, 240=blue)\x1b[0m");
+    s.push_str(&move_to(row_r + 9, 3));
+    s.push_str("\x1b[2m  S = saturation   0–100    vividness   (0 = grayscale, 100 = pure)\x1b[0m");
+    s.push_str(&move_to(row_r + 10, 3));
+    s.push_str("\x1b[2m  V = value        0–100    brightness  (0 = black, 100 = full)\x1b[0m");
 
     // Output line
-    s.push_str(&move_to(row_r + 6, 3));
+    s.push_str(&move_to(row_r + 12, 3));
     let out_str = match app.out_fmt {
         OutputFmt::Hex => cur.hex(),
         OutputFmt::Rgb => format!("rgb({}, {}, {})", cur.r, cur.g, cur.b),
@@ -352,25 +358,11 @@ fn render(app: &App, cols: u16, rows: u16) {
 
 // ─────────────────────────── main ────────────────────────────────────
 
-fn print_color(slot: &str, c: &Rgb, fmt: OutputFmt) {
-    let hsv = c.to_hsv();
-    match fmt {
-        OutputFmt::Hex => println!("{}={}", slot, c.hex()),
-        OutputFmt::Rgb => println!("{}=rgb({}, {}, {})", slot, c.r, c.g, c.b),
-        OutputFmt::Hsv => println!("{}=hsv({:.0}, {:.0}%, {:.0}%)", slot, hsv.h, hsv.s * 100.0, hsv.v * 100.0),
-        OutputFmt::All => {
-            println!("{}={}", slot, c.hex());
-            println!("{}=rgb({}, {}, {})", slot, c.r, c.g, c.b);
-            println!("{}=hsv({:.0}, {:.0}%, {:.0}%)", slot, hsv.h, hsv.s * 100.0, hsv.v * 100.0);
-        }
-    }
-}
-
 fn main() {
-    // Defaults: rust orange + the suite's near-black bg.
+    // Defaults: rust orange on pure black.
     let mut app = App {
         fg: Rgb { r: 247, g: 76, b: 0 },
-        bg: Rgb { r: 10, g: 10, b: 20 },
+        bg: Rgb { r: 0, g: 0, b: 0 },
         editing: Slot::Fg,
         channel: Channel::R,
         out_fmt: OutputFmt::Hex,
@@ -489,12 +481,23 @@ fn main() {
     Crust::cleanup();
     print!("\x1b[?25h");
 
-    // Emit chosen colors on stdout.
-    match app.mode {
-        Mode::Pick => print_color("color", &app.fg, app.out_fmt),
-        Mode::Pair => {
-            print_color("fg", &app.fg, app.out_fmt);
-            print_color("bg", &app.bg, app.out_fmt);
+    // Emit chosen colors on stdout. Hex is always printed for both
+    // slots (it's the most copy-pasted format). If --rgb / --hsv /
+    // --all was requested, those lines follow.
+    println!("fg={}", app.fg.hex());
+    println!("bg={}", app.bg.hex());
+    let extras = |slot: &str, c: &Rgb, fmt: OutputFmt| {
+        let hsv = c.to_hsv();
+        match fmt {
+            OutputFmt::Hex => {}
+            OutputFmt::Rgb => println!("{}=rgb({}, {}, {})", slot, c.r, c.g, c.b),
+            OutputFmt::Hsv => println!("{}=hsv({:.0}, {:.0}%, {:.0}%)", slot, hsv.h, hsv.s * 100.0, hsv.v * 100.0),
+            OutputFmt::All => {
+                println!("{}=rgb({}, {}, {})", slot, c.r, c.g, c.b);
+                println!("{}=hsv({:.0}, {:.0}%, {:.0}%)", slot, hsv.h, hsv.s * 100.0, hsv.v * 100.0);
+            }
         }
-    }
+    };
+    extras("fg", &app.fg, app.out_fmt);
+    extras("bg", &app.bg, app.out_fmt);
 }

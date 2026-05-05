@@ -1,6 +1,6 @@
 [package]
 name = "fe2o3-prism"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Geir Isene <g@isene.com>"]
 description = "TUI RGB color picker with FG/BG slots, HSV/RGB sliders, live sample text, WCAG contrast. Member of the Fe2O3 suite."
