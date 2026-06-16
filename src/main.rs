@@ -372,6 +372,8 @@ fn main() {
 
     // Parse argv.
     let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut out_file: Option<String> = None;
+    let mut hex_seen = 0; // first hex → fg, second → bg (independent of flag order)
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -381,20 +383,26 @@ fn main() {
             "--hsv"  => { app.out_fmt = OutputFmt::Hsv; }
             "--hex"  => { app.out_fmt = OutputFmt::Hex; }
             "--all"  => { app.out_fmt = OutputFmt::All; }
+            // Write the result to a file instead of stdout, so prism can be
+            // launched as a picker by another TUI: the terminal stays free for
+            // prism's own UI, and the caller reads the chosen colours from the file.
+            s if s.starts_with("--out=") => { out_file = Some(s[6..].to_string()); }
             "-h" | "--help" => {
                 println!("prism — TUI RGB color picker");
                 println!();
-                println!("Usage: prism [--pick|--pair] [--hex|--rgb|--hsv|--all] [HEX [HEX]]");
+                println!("Usage: prism [--pick|--pair] [--hex|--rgb|--hsv|--all] [--out=FILE] [HEX [HEX]]");
                 println!();
                 println!("  --pick           pick a single color (FG slot)");
                 println!("  --pair           pick FG + BG (default)");
                 println!("  --hex/--rgb/--hsv/--all  output format on quit");
+                println!("  --out=FILE       write the result to FILE instead of stdout");
                 println!("  HEX HEX          preload FG and BG with hex codes");
                 return;
             }
             s if s.starts_with('#') || s.len() == 6 => {
                 if let Some(c) = Rgb::from_hex(s) {
-                    if i == 0 { app.fg = c; } else { app.bg = c; }
+                    if hex_seen == 0 { app.fg = c; } else { app.bg = c; }
+                    hex_seen += 1;
                 }
             }
             _ => {}
@@ -484,20 +492,25 @@ fn main() {
     // Emit chosen colors on stdout. Hex is always printed for both
     // slots (it's the most copy-pasted format). If --rgb / --hsv /
     // --all was requested, those lines follow.
-    println!("fg={}", app.fg.hex());
-    println!("bg={}", app.bg.hex());
-    let extras = |slot: &str, c: &Rgb, fmt: OutputFmt| {
+    let mut result = String::new();
+    result.push_str(&format!("fg={}\n", app.fg.hex()));
+    result.push_str(&format!("bg={}\n", app.bg.hex()));
+    let extras = |slot: &str, c: &Rgb, fmt: OutputFmt| -> String {
         let hsv = c.to_hsv();
         match fmt {
-            OutputFmt::Hex => {}
-            OutputFmt::Rgb => println!("{}=rgb({}, {}, {})", slot, c.r, c.g, c.b),
-            OutputFmt::Hsv => println!("{}=hsv({:.0}, {:.0}%, {:.0}%)", slot, hsv.h, hsv.s * 100.0, hsv.v * 100.0),
-            OutputFmt::All => {
-                println!("{}=rgb({}, {}, {})", slot, c.r, c.g, c.b);
-                println!("{}=hsv({:.0}, {:.0}%, {:.0}%)", slot, hsv.h, hsv.s * 100.0, hsv.v * 100.0);
-            }
+            OutputFmt::Hex => String::new(),
+            OutputFmt::Rgb => format!("{}=rgb({}, {}, {})\n", slot, c.r, c.g, c.b),
+            OutputFmt::Hsv => format!("{}=hsv({:.0}, {:.0}%, {:.0}%)\n", slot, hsv.h, hsv.s * 100.0, hsv.v * 100.0),
+            OutputFmt::All => format!(
+                "{slot}=rgb({}, {}, {})\n{slot}=hsv({:.0}, {:.0}%, {:.0}%)\n",
+                c.r, c.g, c.b, hsv.h, hsv.s * 100.0, hsv.v * 100.0
+            ),
         }
     };
-    extras("fg", &app.fg, app.out_fmt);
-    extras("bg", &app.bg, app.out_fmt);
+    result.push_str(&extras("fg", &app.fg, app.out_fmt));
+    result.push_str(&extras("bg", &app.bg, app.out_fmt));
+    match out_file {
+        Some(path) => { let _ = std::fs::write(path, result); }
+        None => { print!("{}", result); }
+    }
 }

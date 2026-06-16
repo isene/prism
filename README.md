@@ -54,12 +54,13 @@ prism --hex              # output as #rrggbb (default)
 prism --rgb              # output as rgb(R, G, B)
 prism --hsv              # output as hsv(H°, S%, V%)
 prism --all              # output all three formats
+prism --out=FILE         # write the result to FILE instead of stdout
 prism #f74c00            # preload FG with this hex
 prism #f74c00 #0a0a14    # preload both FG and BG
 ```
 
 On quit, the chosen colors print to stdout one per line, prefixed
-with the slot name:
+with the slot name (or to `--out=FILE` — see below):
 
 ```sh
 $ prism --pick
@@ -77,6 +78,13 @@ This makes prism easy to script against:
 hex=$(prism --pick #$(grep '^fg=' ~/.glassrc | cut -d# -f2) | cut -d= -f2)
 sed -i "s/^fg=.*/fg=$hex/" ~/.glassrc
 ```
+
+To embed prism as a colour picker inside another TUI, use `--out=FILE`:
+prism draws on the terminal as usual, but writes the result to the file
+instead of stdout, so the host app's screen and prism's UI don't collide.
+The caller launches `prism --pair --out=/tmp/pick $FG $BG`, then reads the
+chosen colours from the file (this is how [grid](https://github.com/isene/grid)
+colours cells).
 
 ## Keys
 
