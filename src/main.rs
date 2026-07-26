@@ -20,6 +20,9 @@
 
 use std::io::Write;
 
+use crust::style;
+use crust::seq;
+use crust::Cursor;
 use crust::{Crust, Input};
 
 // ─────────────────────────── color math ──────────────────────────────
@@ -102,11 +105,11 @@ fn wcag_label(ratio: f32) -> (&'static str, &'static str) {
 
 // ─────────────────────────── ANSI helpers ────────────────────────────
 
-fn fg_esc(c: &Rgb) -> String { format!("\x1b[38;2;{};{};{}m", c.r, c.g, c.b) }
-fn bg_esc(c: &Rgb) -> String { format!("\x1b[48;2;{};{};{}m", c.r, c.g, c.b) }
-const RESET: &str = "\x1b[0m";
+fn fg_esc(c: &Rgb) -> String { style::set_fg_rgb(c.r, c.g, c.b) }
+fn bg_esc(c: &Rgb) -> String { style::set_bg_rgb(c.r, c.g, c.b) }
+const RESET: &str = style::RESET;
 
-fn move_to(row: u16, col: u16) -> String { format!("\x1b[{};{}H", row, col) }
+fn move_to(row: u16, col: u16) -> String { Cursor::at(col, row) }
 
 // ─────────────────────────── app state ───────────────────────────────
 
@@ -174,9 +177,9 @@ fn slider(label: &str, value: i32, max: i32, focused: bool, color_hint: &Rgb) ->
     let bar: String = (0..width).map(|i| if i < filled { '█' } else { '░' }).collect();
     let bar = format!("{}{}{}", fg_esc(color_hint), bar, RESET);
     let lbl = if focused {
-        format!("\x1b[1;33m{}\x1b[0m", label)  // bold yellow
+        style::styled(label, Some(11), None, "b")  // bold yellow
     } else {
-        format!("\x1b[2m{}\x1b[0m", label)     // dim
+        style::dim(label)                        // dim
     };
     format!("{} [{}] {:>3}", lbl, bar, value)
 }
@@ -184,15 +187,18 @@ fn slider(label: &str, value: i32, max: i32, focused: bool, color_hint: &Rgb) ->
 fn render(app: &App, cols: u16, rows: u16) {
     // Build entire frame in a String, then write at once.
     let mut s = String::new();
-    s.push_str("\x1b[H");          // move home
-    s.push_str("\x1b[J");          // clear from cursor
+    s.push_str(seq::HOME);          // move home
+    s.push_str(seq::ERASE_BELOW);          // clear from cursor
 
     let editing_label = match app.editing { Slot::Fg => "FG", Slot::Bg => "BG" };
 
     // Title
     s.push_str(&move_to(2, 3));
-    s.push_str(&format!("\x1b[1;38;2;247;76;0mprism\x1b[0m  TUI color picker  \x1b[2m(editing: {})\x1b[0m",
-        editing_label));
+    s.push_str(&format!(
+        "{}  TUI color picker  {}",
+        style::rgb("prism", Some((247, 76, 0)), None, "b"),
+        style::dim(&format!("(editing: {editing_label})"))
+    ));
 
     // Slot blocks at rows 4-9
     let fg_focus = app.editing == Slot::Fg;
@@ -204,9 +210,9 @@ fn render(app: &App, cols: u16, rows: u16) {
     let frame = |x: u16, y: u16, w: u16, h: u16, fill: &Rgb, label: &str, hex: &str, focused: bool| -> String {
         let mut out = String::new();
         // Outer border (focused = bright rust, else dim)
-        let bcolor = if focused { "\x1b[38;2;255;122;58m" } else { "\x1b[2m" };
+        let bcolor = if focused { style::set_fg_rgb(255, 122, 58) } else { style::DIM.to_string() };
         out.push_str(&move_to(y, x));
-        out.push_str(bcolor);
+        out.push_str(&bcolor);
         out.push('┌');
         let mid = if focused { format!(" {} ", label) } else { format!(" {} ", label) };
         let pad = (w as usize).saturating_sub(2 + mid.len());
@@ -221,7 +227,7 @@ fn render(app: &App, cols: u16, rows: u16) {
             out.push_str(&bg_esc(fill));
             out.push_str(&" ".repeat(w as usize - 2));
             out.push_str(RESET);
-            out.push_str(bcolor);
+            out.push_str(&bcolor);
             out.push('│');
         }
         out.push_str(&move_to(y + h - 1, x));
@@ -242,9 +248,9 @@ fn render(app: &App, cols: u16, rows: u16) {
     let ratio = contrast_ratio(&app.fg, &app.bg);
     let (lvl, mark) = wcag_label(ratio);
     s.push_str(&move_to(5, bg_x + slot_w + 3));
-    s.push_str(&format!("\x1b[1mContrast:\x1b[0m {:.2}:1  {} {}", ratio, lvl, mark));
+    s.push_str(&format!("{} {:.2}:1  {} {}", style::bold("Contrast:"), ratio, lvl, mark));
     s.push_str(&move_to(7, bg_x + slot_w + 3));
-    s.push_str("\x1b[2mWCAG: AAA ≥ 7   AA ≥ 4.5   AA· ≥ 3\x1b[0m");
+    s.push_str(&style::dim("WCAG: AAA ≥ 7   AA ≥ 4.5   AA· ≥ 3"));
 
     // Sample-text area (rows 11-17)
     let sx = 3u16;
@@ -253,9 +259,11 @@ fn render(app: &App, cols: u16, rows: u16) {
     let sh = 7u16;
     // Top rule
     s.push_str(&move_to(sy, sx));
-    s.push_str("\x1b[2m── Sample ");
-    s.push_str(&"─".repeat((sw as usize).saturating_sub(11)));
-    s.push_str("\x1b[0m");
+    s.push_str(&style::dim(&format!(
+        "── Sample {}",
+        "─".repeat((sw as usize).saturating_sub(11))
+    )));
+    s.push_str(RESET);
     // Sample lines, painted with current fg+bg
     let lines: [&str; 5] = [
         "# The quick brown fox jumps over the lazy dog",
@@ -277,7 +285,7 @@ fn render(app: &App, cols: u16, rows: u16) {
     }
     // Bottom rule
     s.push_str(&move_to(sy + sh - 1, sx));
-    s.push_str(&format!("\x1b[2m{}\x1b[0m", "─".repeat(sw as usize)));
+    s.push_str(&style::dim(&"─".repeat(sw as usize)));
 
     // Sliders for current slot
     let cur = app.current();
@@ -308,18 +316,18 @@ fn render(app: &App, cols: u16, rows: u16) {
     // Channel-model explanations under the sliders (full-width, blank
     // row gap above and between the two model groups).
     s.push_str(&move_to(row_r + 4, 3));
-    s.push_str("\x1b[2mRGB — additive light. Each channel 0–255; mix the three primaries.\x1b[0m");
+    s.push_str(&style::dim("RGB — additive light. Each channel 0–255; mix the three primaries."));
     s.push_str(&move_to(row_r + 5, 3));
-    s.push_str("\x1b[2m  R = red     G = green     B = blue       (0,0,0)=black · (255,255,255)=white\x1b[0m");
+    s.push_str(&style::dim("  R = red     G = green     B = blue       (0,0,0)=black · (255,255,255)=white"));
 
     s.push_str(&move_to(row_r + 7, 3));
-    s.push_str("\x1b[2mHSV — perceptual model, what humans intuitively reach for.\x1b[0m");
+    s.push_str(&style::dim("HSV — perceptual model, what humans intuitively reach for."));
     s.push_str(&move_to(row_r + 8, 3));
-    s.push_str("\x1b[2m  H = hue          0–360°   which color (0=red, 120=green, 240=blue)\x1b[0m");
+    s.push_str(&style::dim("  H = hue          0–360°   which color (0=red, 120=green, 240=blue)"));
     s.push_str(&move_to(row_r + 9, 3));
-    s.push_str("\x1b[2m  S = saturation   0–100    vividness   (0 = grayscale, 100 = pure)\x1b[0m");
+    s.push_str(&style::dim("  S = saturation   0–100    vividness   (0 = grayscale, 100 = pure)"));
     s.push_str(&move_to(row_r + 10, 3));
-    s.push_str("\x1b[2m  V = value        0–100    brightness  (0 = black, 100 = full)\x1b[0m");
+    s.push_str(&style::dim("  V = value        0–100    brightness  (0 = black, 100 = full)"));
 
     // Output line
     s.push_str(&move_to(row_r + 12, 3));
@@ -330,27 +338,35 @@ fn render(app: &App, cols: u16, rows: u16) {
         OutputFmt::All => format!("{}  rgb({}, {}, {})  hsv({:.0}, {:.0}%, {:.0}%)",
             cur.hex(), cur.r, cur.g, cur.b, hsv.h, hsv.s * 100.0, hsv.v * 100.0),
     };
-    s.push_str(&format!("\x1b[1mHex:\x1b[0m {}    \x1b[2mout({}):\x1b[0m {}",
+    s.push_str(&format!(
+        "{} {}    {} {}",
+        style::bold("Hex:"),
         cur.hex(),
-        match app.out_fmt {
-            OutputFmt::Hex => "hex", OutputFmt::Rgb => "rgb",
-            OutputFmt::Hsv => "hsv", OutputFmt::All => "all",
-        },
-        out_str));
+        style::dim(&format!(
+            "out({}):",
+            match app.out_fmt {
+                OutputFmt::Hex => "hex",
+                OutputFmt::Rgb => "rgb",
+                OutputFmt::Hsv => "hsv",
+                OutputFmt::All => "all",
+            }
+        )),
+        out_str
+    ));
 
     // Help line
     let help_y = rows.saturating_sub(2);
     s.push_str(&move_to(help_y, 3));
-    s.push_str("\x1b[2mTab swap FG/BG · r/g/b/h/s/v focus · j/k ±1 · J/K ±10 · # type hex · c copy · o output · q quit\x1b[0m");
+    s.push_str(&style::dim("Tab swap FG/BG · r/g/b/h/s/v focus · j/k ±1 · J/K ±10 · # type hex · c copy · o output · q quit"));
 
     // Status line (right above help)
     if !app.status.is_empty() {
         s.push_str(&move_to(help_y - 1, 3));
-        s.push_str(&format!("\x1b[1;38;2;90;200;255m{}\x1b[0m", app.status));
+        s.push_str(&style::rgb(&app.status, Some((90, 200, 255)), None, "b"));
     }
 
     // Hide cursor
-    s.push_str("\x1b[?25l");
+    s.push_str(seq::HIDE);
 
     print!("{}", s);
     let _ = std::io::stdout().flush();
@@ -439,7 +455,7 @@ fn main() {
             "#" => {
                 // Inline hex input. Render a minimal prompt at the bottom.
                 let prompt_y = rows.saturating_sub(3);
-                print!("{}\x1b[2K\x1b[1mhex:\x1b[0m \x1b[?25h", move_to(prompt_y, 3));
+                print!("{}{}{} {}", move_to(prompt_y, 3), seq::ERASE_LINE, style::bold("hex:"), seq::SHOW);
                 let _ = std::io::stdout().flush();
                 let mut buf = String::new();
                 loop {
@@ -454,7 +470,7 @@ fn main() {
                         }
                         _ => {}
                     }
-                    print!("{}\x1b[2K\x1b[1mhex:\x1b[0m {}", move_to(prompt_y, 3), buf);
+                    print!("{}{}{} {}", move_to(prompt_y, 3), seq::ERASE_LINE, style::bold("hex:"), buf);
                     let _ = std::io::stdout().flush();
                 }
                 if let Some(c) = Rgb::from_hex(&buf) {
@@ -463,7 +479,7 @@ fn main() {
                 } else if !buf.is_empty() {
                     app.status = format!("invalid hex: {}", buf);
                 }
-                print!("\x1b[?25l");
+                print!("{}", seq::HIDE);
             }
             "c" => {
                 let hex = app.current().hex();
@@ -487,7 +503,7 @@ fn main() {
     }
 
     Crust::cleanup();
-    print!("\x1b[?25h");
+    print!("{}", seq::SHOW);
 
     // Emit chosen colors on stdout. Hex is always printed for both
     // slots (it's the most copy-pasted format). If --rgb / --hsv /
