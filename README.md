@@ -93,7 +93,7 @@ colours cells).
 | `Tab` | swap which slot (FG / BG) is being edited |
 | `r` `g` `b` `h` `s` `v` | focus that channel |
 | `j` / `↓` / `←` | step focused channel −1 |
-| `k` / `↑` / `→` | step focused channel +1 |
+| `k` / `↑` / `→` | step focused channel +1 (V past 100 goes on toward white) |
 | `J` / `Shift-↓` / `Shift-←` | step −10 |
 | `K` / `Shift-↑` / `Shift-→` | step +10 |
 | `#` | type a hex value (then Enter) |

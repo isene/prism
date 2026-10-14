@@ -161,7 +161,10 @@ impl App {
                 c = hsv.to_rgb();
             }
             Channel::V => {
-                hsv.v = (hsv.v + delta as f32 / 100.0).clamp(0.0, 1.0);
+                let v = hsv.v + delta as f32 / 100.0;
+                // Past full brightness, a step up goes on toward white.
+                if v > 1.0 { hsv.s = (hsv.s - (v - 1.0)).max(0.0); }
+                hsv.v = v.clamp(0.0, 1.0);
                 c = hsv.to_rgb();
             }
         }
@@ -327,7 +330,7 @@ fn render(app: &App, cols: u16, rows: u16) {
     s.push_str(&move_to(row_r + 9, 3));
     s.push_str(&style::dim("  S = saturation   0–100    vividness   (0 = grayscale, 100 = pure)"));
     s.push_str(&move_to(row_r + 10, 3));
-    s.push_str(&style::dim("  V = value        0–100    brightness  (0 = black, 100 = full)"));
+    s.push_str(&style::dim("  V = value        0–100    brightness  (0 = black, 100 = full, more = whiter)"));
 
     // Output line
     s.push_str(&move_to(row_r + 12, 3));
@@ -528,5 +531,22 @@ fn main() {
     match out_file {
         Some(path) => { let _ = std::fs::write(path, result); }
         None => { print!("{}", result); }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn value_past_full_goes_to_white() {
+        let red = Rgb { r: 255, g: 0, b: 0 };
+        let mut app = App { fg: red, bg: red, editing: Slot::Fg, channel: Channel::V,
+            out_fmt: OutputFmt::Hex, mode: Mode::Pick, status: String::new() };
+        app.step(1);
+        let c = app.current();
+        assert_eq!((c.r, c.g, c.b), (255, 3, 3));
+        for _ in 0..10 { app.step(10); }
+        assert_eq!(app.current().hex(), "#ffffff");
     }
 }
