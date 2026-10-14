@@ -360,7 +360,7 @@ fn render(app: &App, cols: u16, rows: u16) {
     // Help line
     let help_y = rows.saturating_sub(2);
     s.push_str(&move_to(help_y, 3));
-    s.push_str(&style::dim("Tab swap FG/BG · r/g/b/h/s/v focus · j/k ±1 · J/K ±10 · # type hex · c copy · o output · q quit"));
+    s.push_str(&style::dim("Tab swap FG/BG · r/g/b/h/s/v focus · j/k ±1 · J/K ±10 · # type hex · c copy · o output · t on terminal · q quit"));
 
     // Status line (right above help)
     if !app.status.is_empty() {
@@ -436,7 +436,14 @@ fn main() {
     if cols < 80 { cols = 100; }
     if rows < 24 { rows = 28; }
 
+    // t paints the terminal's background in the colour being edited.
+    let mut on_terminal = false;
+    let mut shown = String::new();
     loop {
+        if on_terminal && shown != app.current().hex() {
+            shown = app.current().hex();
+            Crust::set_background(&shown);
+        }
         render(&app, cols, rows);
         let key = match Input::getchr(None) { Some(k) => k, None => continue };
         match key.as_str() {
@@ -489,6 +496,14 @@ fn main() {
                 crust::clipboard_copy(&hex, "clipboard");
                 app.status = format!("copied {} to clipboard", hex);
             }
+            "t" => {
+                on_terminal = !on_terminal;
+                if !on_terminal {
+                    Crust::reset_background();
+                    shown.clear();
+                }
+                app.status = format!("terminal background {}", if on_terminal { "on" } else { "off" });
+            }
             "o" => {
                 app.out_fmt = match app.out_fmt {
                     OutputFmt::Hex => OutputFmt::Rgb,
@@ -505,6 +520,7 @@ fn main() {
         }
     }
 
+    if on_terminal { Crust::reset_background(); }
     Crust::cleanup();
     print!("{}", seq::SHOW);
 

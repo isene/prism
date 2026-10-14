@@ -2,7 +2,7 @@
 
 <img src="img/prism.svg" align="left" width="150" height="150">
 
-![Version](https://img.shields.io/badge/version-0.1.3-blue) ![Rust](https://img.shields.io/badge/language-Rust-f74c00) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue) ![Dependencies](https://img.shields.io/badge/dependencies-crust-blue) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
+![Version](https://img.shields.io/badge/version-0.1.4-blue) ![Rust](https://img.shields.io/badge/language-Rust-f74c00) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue) ![Dependencies](https://img.shields.io/badge/dependencies-crust-blue) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
 
 A TUI RGB color picker. Two slots (foreground + background), R/G/B
 and H/S/V sliders, hex input, live sample-text preview, WCAG contrast
@@ -99,6 +99,7 @@ colours cells).
 | `#` | type a hex value (then Enter) |
 | `c` | copy current hex to clipboard |
 | `o` | cycle output format (hex → rgb → hsv → all) |
+| `t` | paint the terminal's background in the current colour, `t` again puts it back (OSC 11) |
 | `q` / `Esc` | quit |
 
 ## Footprint
