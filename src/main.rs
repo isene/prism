@@ -133,6 +133,8 @@ struct App {
     out_fmt: OutputFmt,
     mode: Mode,
     status: String,
+    /// t: the terminal's background shows the colour being edited.
+    on_terminal: bool,
 }
 
 impl App {
@@ -185,6 +187,15 @@ fn slider(label: &str, value: i32, max: i32, focused: bool, color_hint: &Rgb) ->
         style::dim(label)                        // dim
     };
     format!("{} [{}] {:>3}", lbl, bar, value)
+}
+
+/// The H, S and V bars show the colour itself, unless the terminal shows
+/// it too (t): then white or black, whichever stands out from it.
+fn hsv_hint(cur: Rgb, on_terminal: bool) -> Rgb {
+    if !on_terminal { return cur; }
+    let white = Rgb { r: 255, g: 255, b: 255 };
+    let black = Rgb { r: 0, g: 0, b: 0 };
+    if contrast_ratio(&cur, &white) >= contrast_ratio(&cur, &black) { white } else { black }
 }
 
 fn render(app: &App, cols: u16, rows: u16) {
@@ -296,9 +307,9 @@ fn render(app: &App, cols: u16, rows: u16) {
     let hint_r = Rgb { r: 255, g: 80, b: 80 };
     let hint_g = Rgb { r: 80, g: 220, b: 100 };
     let hint_b = Rgb { r: 90, g: 140, b: 255 };
-    let hint_hue = cur;
-    let hint_sat = cur;
-    let hint_val = cur;
+    let hint_hue = hsv_hint(cur, app.on_terminal);
+    let hint_sat = hint_hue;
+    let hint_val = hint_hue;
 
     let row_r = sy + sh + 1;
     s.push_str(&move_to(row_r, 3));
@@ -387,6 +398,7 @@ fn main() {
         out_fmt: OutputFmt::Hex,
         mode: Mode::Pair,
         status: String::new(),
+        on_terminal: false,
     };
 
     // Parse argv.
@@ -437,10 +449,9 @@ fn main() {
     if rows < 24 { rows = 28; }
 
     // t paints the terminal's background in the colour being edited.
-    let mut on_terminal = false;
     let mut shown = String::new();
     loop {
-        if on_terminal && shown != app.current().hex() {
+        if app.on_terminal && shown != app.current().hex() {
             shown = app.current().hex();
             Crust::set_background(&shown);
         }
@@ -497,12 +508,12 @@ fn main() {
                 app.status = format!("copied {} to clipboard", hex);
             }
             "t" => {
-                on_terminal = !on_terminal;
-                if !on_terminal {
+                app.on_terminal = !app.on_terminal;
+                if !app.on_terminal {
                     Crust::reset_background();
                     shown.clear();
                 }
-                app.status = format!("terminal background {}", if on_terminal { "on" } else { "off" });
+                app.status = format!("terminal background {}", if app.on_terminal { "on" } else { "off" });
             }
             "o" => {
                 app.out_fmt = match app.out_fmt {
@@ -520,7 +531,7 @@ fn main() {
         }
     }
 
-    if on_terminal { Crust::reset_background(); }
+    if app.on_terminal { Crust::reset_background(); }
     Crust::cleanup();
     print!("{}", seq::SHOW);
 
@@ -558,11 +569,22 @@ mod tests {
     fn value_past_full_goes_to_white() {
         let red = Rgb { r: 255, g: 0, b: 0 };
         let mut app = App { fg: red, bg: red, editing: Slot::Fg, channel: Channel::V,
-            out_fmt: OutputFmt::Hex, mode: Mode::Pick, status: String::new() };
+            out_fmt: OutputFmt::Hex, mode: Mode::Pick, status: String::new(), on_terminal: false };
         app.step(1);
         let c = app.current();
         assert_eq!((c.r, c.g, c.b), (255, 3, 3));
         for _ in 0..10 { app.step(10); }
         assert_eq!(app.current().hex(), "#ffffff");
+    }
+
+    #[test]
+    fn hsv_bars_stand_out_when_the_terminal_shows_the_colour() {
+        // Until 0.1.5 the H, S and V bars kept the colour itself, and with
+        // t on they vanished into a background of that same colour.
+        for hex in ["#592d2d", "#f74c00", "#ffffff", "#000000", "#777777"] {
+            let c = Rgb::from_hex(hex).unwrap();
+            assert_eq!(hsv_hint(c, false).hex(), c.hex());
+            assert!(contrast_ratio(&hsv_hint(c, true), &c) >= 4.5, "{hex}");
+        }
     }
 }
