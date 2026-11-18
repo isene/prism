@@ -371,7 +371,8 @@ fn render(app: &App, cols: u16, rows: u16) {
     // Help line
     let help_y = rows.saturating_sub(2);
     s.push_str(&move_to(help_y, 3));
-    s.push_str(&style::dim("Tab swap FG/BG · r/g/b/h/s/v focus · j/k ±1 · J/K ±10 · # type hex · c copy · o output · t on terminal · q quit"));
+    let keys = style::dim("Tab swap FG/BG · r/g/b/h/s/v focus · j/k ±1 · J/K ±10 · # type hex · c copy · o output · t on terminal · q quit");
+    s.push_str(&crust::with_version(&keys, (cols as usize).saturating_sub(4), "prism", env!("CARGO_PKG_VERSION")));
 
     // Status line (right above help)
     if !app.status.is_empty() {
